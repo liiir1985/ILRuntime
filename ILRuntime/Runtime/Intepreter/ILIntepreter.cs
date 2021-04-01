@@ -80,6 +80,7 @@ namespace ILRuntime.Runtime.Intepreter
         }
         public object Run(ILMethod method, object instance, object[] p)
         {
+            AppDomain.BeginSample("ILRuntime.ILIntepreter.Run");
             IList<object> mStack = stack.ManagedStack;
             int mStackBase = mStack.Count;
             StackObject* esp = stack.StackBase;
@@ -102,6 +103,7 @@ namespace ILRuntime.Runtime.Intepreter
 #else
             ((UncheckedList<object>)mStack).RemoveRange(mStackBase, mStack.Count - mStackBase);
 #endif
+            AppDomain.EndSample();
             return result;
         }
         internal StackObject* Execute(ILMethod method, StackObject* esp, out bool unhandledException)
@@ -110,16 +112,7 @@ namespace ILRuntime.Runtime.Intepreter
             if (method == null)
                 throw new NullReferenceException();
 #endif
-#if DEBUG && !NO_PROFILER
-            if (System.Threading.Thread.CurrentThread.ManagedThreadId == AppDomain.UnityMainThreadID)
-
-#if UNITY_5_5_OR_NEWER
-                UnityEngine.Profiling.Profiler.BeginSample(method.ToString());
-#else
-                UnityEngine.Profiler.BeginSample(method.ToString());
-#endif
-
-#endif
+            AppDomain.BeginSample(method.ToString());
             OpCode[] body = method.Body;
             StackFrame frame;
             stack.InitializeFrame(method, esp, out frame);
@@ -1720,7 +1713,8 @@ namespace ILRuntime.Runtime.Intepreter
 
                                         int addr = ip->TokenInteger;
                                         var sql = from e in method.ExceptionHandler
-                                                  where addr == e.HandlerEnd + 1 && e.HandlerType == ExceptionHandlerType.Finally || e.HandlerType == ExceptionHandlerType.Fault
+                                                  //where addr == e.HandlerEnd + 1 && e.HandlerType == ExceptionHandlerType.Finally || e.HandlerType == ExceptionHandlerType.Fault
+                                                  where addr == e.HandlerEnd + 1 && e.HandlerType == ExceptionHandlerType.Finally   // 如果调用 Fault 会导致协程函数 只执行一次
                                                   select e;
                                         eh = sql.FirstOrDefault();
                                         if (eh != null)
@@ -1821,25 +1815,9 @@ namespace ILRuntime.Runtime.Intepreter
                                                     if (!allowUnboundCLRMethod)
                                                         throw new NotSupportedException(cm.ToString() + " is not bound!");
 #endif
-#if DEBUG && !NO_PROFILER
-                                                    if (System.Threading.Thread.CurrentThread.ManagedThreadId == AppDomain.UnityMainThreadID)
-
-#if UNITY_5_5_OR_NEWER
-                                                        UnityEngine.Profiling.Profiler.BeginSample(cm.ToString());
-#else
-                                                        UnityEngine.Profiler.BeginSample(cm.ToString());
-#endif
-#endif
+                                                    //AppDomain.BeginSample(cm.ToString()); // error: "Missing Profiler.EndSample (BeginSample and EndSample count must match)"
                                                     object result = cm.Invoke(this, esp, mStack);
-#if DEBUG && !NO_PROFILER
-                                                    if (System.Threading.Thread.CurrentThread.ManagedThreadId == AppDomain.UnityMainThreadID)
-#if UNITY_5_5_OR_NEWER
-                                                        UnityEngine.Profiling.Profiler.EndSample();
-#else
-                                                        UnityEngine.Profiler.EndSample();
-#endif
-
-#endif
+                                                    //AppDomain.EndSample();
                                                     if (result is CrossBindingAdaptorType)
                                                         result = ((CrossBindingAdaptorType)result).ILInstance;
                                                     int paramCount = cm.ParameterCount;
@@ -4270,14 +4248,7 @@ namespace ILRuntime.Runtime.Intepreter
                     }
                 }
             }
-#if DEBUG && !NO_PROFILER
-            if (System.Threading.Thread.CurrentThread.ManagedThreadId == AppDomain.UnityMainThreadID)
-#if UNITY_5_5_OR_NEWER
-                UnityEngine.Profiling.Profiler.EndSample();
-#else
-                UnityEngine.Profiler.EndSample();
-#endif
-#endif
+            AppDomain.EndSample();
             //ClearStack
             return stack.PopFrame(ref frame, esp);
         }

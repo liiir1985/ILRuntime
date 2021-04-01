@@ -247,6 +247,12 @@ namespace ILRuntime.CLR.Method
             return (StackObject*)((long)a - sizeof(StackObject) * b);
         }
 
+        void ClearInvokeParams()
+        {
+            var arr = invocationParam;
+            for (int i = 0; i < arr.Length; i++) arr[i] = null;
+        }
+
         public unsafe object Invoke(Runtime.Intepreter.ILIntepreter intepreter, StackObject* esp, IList<object> mStack, bool isNewObj = false)
         {
             if (parameters == null)
@@ -278,6 +284,7 @@ namespace ILRuntime.CLR.Method
                         if (instance is CrossBindingAdaptorType && paramCount == 0)//It makes no sense to call the Adaptor's default constructor
                             return null;
                         cDef.Invoke(instance, param);
+                        ClearInvokeParams();
                         return null;
                     }
                     else
@@ -290,6 +297,7 @@ namespace ILRuntime.CLR.Method
                     var res = cDef.Invoke(param);
 
                     FixReference(paramCount, esp, param, mStack, null, false);
+                    ClearInvokeParams();
                     return res;
                 }
 
@@ -306,7 +314,13 @@ namespace ILRuntime.CLR.Method
                     //if (declaringType.IsValueType)
                     //    instance = ILIntepreter.CheckAndCloneValueType(instance, appdomain);
                     if (instance == null)
+                    {
+                        // 对于 System.Nullable<T> 和 null 判断时, 会调用 get_HasValue 方法
+                        // 这里, 可能是设计问题, 当该变量未赋值时, instance 为 null
+                        // 因此, 作为临时修复, 当 instance 为 null, 则直接返回 false
+                        if (declaringType.IsValueType && this.Name == "get_HasValue") return false;
                         throw new NullReferenceException();
+                    }
                 }
                 object res = null;
                 /*if (redirect != null)
@@ -317,6 +331,7 @@ namespace ILRuntime.CLR.Method
                 }
 
                 FixReference(paramCount, esp, param, mStack, instance, !def.IsStatic);
+                ClearInvokeParams();
                 return res;
             }
         }

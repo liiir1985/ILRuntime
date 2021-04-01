@@ -382,7 +382,7 @@ namespace ILRuntime.Runtime.Generated
             GenerateBindingInitializeScript(clsNames, valueTypeBinders, outputPath);
         }
 
-        static void PrewarmDomain(ILRuntime.Runtime.Enviorment.AppDomain domain)
+        public static void PrewarmDomain(ILRuntime.Runtime.Enviorment.AppDomain domain)
         {
             var arr = domain.LoadedTypes.Values.ToArray();
             //Prewarm
